@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Raspa y Gana Oficial</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #0f172a;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        .titulo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #ffaa00;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+
+        .subtitulo {
+            font-size: 14px;
+            color: #94a3b8;
+            margin-bottom: 25px;
+        }
+
+        /* --- TARJETA RASPA Y GANA --- */
+        .contenedor-raspa {
+            position: relative;
+            width: 300px;
+            height: 180px;
+            background: #1e293b;
+            border-radius: 20px;
+            border: 4px solid #334155;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.5s ease;
+        }
+
+        /* Brillo legendario si toca Robux */
+        .brillo-robux {
+            animation: bordeNeon 1s infinite alternate;
+        }
+
+        @keyframes bordeNeon {
+            0% { border-color: #00fff0; box-shadow: 0 0 15px #00fff0; }
+            50% { border-color: #ff007f; box-shadow: 0 0 25px #ff007f; }
+            100% { border-color: #ffaa00; box-shadow: 0 0 15px #ffaa00; }
+        }
+
+        /* Texto del premio oculto detrás */
+        .premio-oculto {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .premio-texto {
+            font-size: 22px;
+            font-weight: bold;
+            color: #ffaa00;
+            margin-top: 5px;
+        }
+
+        /* Canvas gris para raspar con el dedo */
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            cursor: crosshair;
+            touch-action: none; /* Evita que la pantalla se mueva al raspar */
+            border-radius: 14px;
+        }
+
+        /* --- SELLO DE FIRMA DE ALEX --- */
+        .firma-alex {
+            margin-top: 30px;
+            font-family: 'Georgia', serif;
+            font-style: italic;
+            font-size: 26px;
+            color: rgba(255, 255, 255, 0.35);
+            letter-spacing: -1px;
+            font-weight: bold;
+        }
+
+        /* --- BLOQUEO FIJO --- */
+        .contenedor-bloqueo {
+            display: none;
+            background: #1e293b;
+            border: 2px solid #ff3366;
+            padding: 25px;
+            border-radius: 20px;
+            width: 100%;
+            max-width: 320px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+
+        .indicacion-alex {
+            font-size: 18px;
+            font-weight: bold;
+            color: #00fff0;
+            background: #0f172a;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            border: 1px dashed #00fff0;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="interfaz-juego" style="display: flex; flex-direction: column; align-items: center; width: 100%;">
+        <h1 class="titulo">Raspa y Gana</h1>
+        <p class="subtitulo">Pasa tu dedo por el cuadro gris para revelar tu premio</p>
+
+        <div class="contenedor-raspa" id="tarjeta-tarjeta">
+            <div class="premio-oculto">
+                <div style="font-size: 40px;">🎁</div>
+                <div class="premio-texto" id="texto-ganado">Cargando...</div>
+            </div>
+            <canvas id="capa-gris" width="292" height="172"></canvas>
+        </div>
+    </div>
+
+    <div class="contenedor-bloqueo" id="interfaz-bloqueo">
+        <h2 style="color: #ff3366; margin-top: 0; font-size: 22px;">¡Tarjeta Raspada!</h2>
+        <p style="color: #ccc; font-size: 15px; margin-bottom: 5px;">Tu premio asignado fue:</p>
+        <div id="recompensa-texto" style="font-size: 19px; font-weight: bold; color: #ffaa00; margin: 10px 0;"></div>
+        <div class="indicacion-alex">quita una cap y mándaselo a Alex y reclama tu premio</div>
+    </div>
+
+    <div class="firma-alex">Alex.</div>
+
+    <script>
+        const juegoContenedor = document.getElementById("interfaz-juego");
+        const bloqueoContenedor = document.getElementById("interfaz-bloqueo");
+        const tarjeta = document.getElementById("tarjeta-tarjeta");
+        const textoGanado = document.getElementById("texto-ganado");
+        const canvas = document.getElementById("capa-gris");
+        const ctx = canvas.getContext("2d");
+
+        let rasgando = false;
+        let premioAsignado = null;
+
+        // Probabilidades configuradas al 100% exacto
+        const premios = [
+            { nombre: "2 regalos pequeños 🎁", esRobux: false, prob: 0.50 },
+            { nombre: "100 Bucks de saldo 💰", esRobux: false, prob: 0.30 },
+            { nombre: "200 Bucks de saldo 💵", esRobux: false, prob: 0.10 },
+            { nombre: "350 Bucks de saldo 💳", esRobux: false, prob: 0.08 },
+            { nombre: "500 Bucks de saldo 🧳", esRobux: false, prob: 0.019 },
+            { nombre: "10 ROBUX 💎", esRobux: true, prob: 0.001 } // 0.1% de probabilidad
+        ];
+
+        window.onload = function() {
+            if (localStorage.getItem("raspaJuegoAbierto") === "true") {
+                activarBloqueo();
+            } else {
+                inicializarRaspa();
+            }
+        };
+
+        function activarBloqueo() {
+            juegoContenedor.style.display = "none";
+            const premioGuardado = localStorage.getItem("premioRaspaGanado") || "Premio Registrado";
+            document.getElementById("recompensa-texto").innerText = premioGuardado;
+            bloqueoContenedor.style.display = "block";
+        }
+
+        function inicializarRaspa() {
+            // Sorteo secreto inicial
+            const azar = Math.random();
+            let suma = 0;
+            premioAsignado = premios[premios.length - 1];
+
+            for (let p of premios) {
+                suma += p.prob;
+                if (azar <= suma) {
+                    premioAsignado = p;
+                    break;
+                }
+            }
+
+            textoGanado.innerText = premioAsignado.nombre;
+
+            // Si gana robux, activamos el borde neón debajo desde antes
+            if (premioAsignado.esRobux) {
+                tarjeta.classList.add("brillo-robux");
+            }
+
+            // Pintar la capa gris del Raspa y Gana
+            ctx.fillStyle = "#555b6e";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Añadirle un texto sutil arriba del gris
+            ctx.fillStyle = "#8892b0";
+            ctx.font = "bold 16px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText("RASPA AQUÍ CON EL DEDO", canvas.width / 2, canvas.height / 2 + 5);
+
+            // Eventos para celulares (Touch)
+            canvas.addEventListener("touchstart", empiezarRaspar);
+            canvas.addEventListener("touchmove", rasparMovimiento);
+            canvas.addEventListener("touchend", pararRaspar);
+
+            // Eventos para computadoras (Mouse)
+            canvas.addEventListener("mousedown", empiezarRaspar);
+            canvas.addEventListener("mousemove", rasparMovimiento);
+            canvas.addEventListener("mouseup", pararRaspar);
+        }
+
+        function empiezarRaspar(e) {
+            rasgando = true;
+            rasparMovimiento(e);
+        }
+
+        function pararRaspar() {
+            rasgando = false;
+            verificarPorcentajeRaspado();
+        }
+
+        function rasparMovimiento(e) {
+            if (!rasgando) return;
+            e.preventDefault();
+
+            // Detectar posición del dedo o mouse
+            let clienteX = e.touches ? e.touches[0].clientX : e.clientX;
+            let clienteY = e.touches ? e.touches[0].clientY : e.clientY;
+            
+            let rect = canvas.getBoundingClientRect();
+            let x = clienteX - rect.left;
+            let y = clienteY - rect.top;
+
+            // Borrar de forma circular (efecto raspado)
+            ctx.globalCompositeOperation = "destination-out";
+            ctx.beginPath();
+            ctx.arc(x, y, 20, 0, Math.PI * 2); // Radio de raspado = 20
+            ctx.fill();
+        }
+      
